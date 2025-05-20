@@ -1,0 +1,966 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>協作故事坊：人與AI的文字之旅</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        textarea::-webkit-scrollbar, .story-content::-webkit-scrollbar, .analysis-keywords-list::-webkit-scrollbar, #storyArchiveList::-webkit-scrollbar, .modal-content::-webkit-scrollbar {
+            width: 8px;
+        }
+        textarea::-webkit-scrollbar-track, .story-content::-webkit-scrollbar-track, .analysis-keywords-list::-webkit-scrollbar-track, #storyArchiveList::-webkit-scrollbar-track, .modal-content::-webkit-scrollbar-track {
+            background: #374151; /* bg-slate-700 */
+            border-radius: 10px;
+        }
+        textarea::-webkit-scrollbar-thumb, .story-content::-webkit-scrollbar-thumb, .analysis-keywords-list::-webkit-scrollbar-thumb, #storyArchiveList::-webkit-scrollbar-thumb, .modal-content::-webkit-scrollbar-thumb {
+            background: #6b7280; /* bg-slate-500 */
+            border-radius: 10px;
+        }
+        textarea::-webkit-scrollbar-thumb:hover, .story-content::-webkit-scrollbar-thumb:hover, .analysis-keywords-list::-webkit-scrollbar-thumb:hover, #storyArchiveList::-webkit-scrollbar-thumb:hover, .modal-content::-webkit-scrollbar-thumb:hover {
+            background: #9ca3af; /* bg-slate-400 */
+        }
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        .story-content p {
+            margin-bottom: 0.75rem; 
+            line-height: 1.6;
+        }
+        .story-content p.user-text::before {
+            content: "【您的創作】";
+            font-weight: bold;
+            color: #60A5FA; /* sky-400 */
+            margin-right: 0.5rem;
+            display: block;
+            font-size: 0.9em;
+        }
+        .story-content p.ai-text::before {
+            content: "【AI的續寫】";
+            font-weight: bold;
+            color: #34D399; /* emerald-400 */
+            margin-right: 0.5rem;
+            display: block;
+            font-size: 0.9em;
+        }
+        .analysis-section {
+            margin-top: 0.75rem;
+        }
+        .analysis-label {
+            font-weight: 600;
+            color: #94a3b8; /* slate-400 */
+        }
+        .analysis-value {
+            color: #e2e8f0; /* slate-200 */
+        }
+        .analysis-keywords-list {
+            max-height: 100px;
+            overflow-y: auto;
+            padding: 0.5rem;
+            background-color: #475569; /* slate-600 */
+            border-radius: 0.375rem; /* rounded-md */
+        }
+        .progress-bar-container {
+            width: 100%;
+            background-color: #4b5563; /* gray-600 */
+            border-radius: 0.375rem; /* rounded-md */
+            overflow: hidden;
+            height: 1rem; /* h-4 */
+        }
+        .progress-bar {
+            background-color: #22c55e; /* green-500 */
+            height: 100%;
+            text-align: center;
+            line-height: 1rem;
+            color: white;
+            font-size: 0.75rem; /* text-xs */
+            transition: width 0.3s ease-in-out;
+        }
+        .mode-indicator {
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.375rem;
+            font-weight: bold;
+            display: inline-block;
+        }
+        .mode-human-lead { background-color: #3b82f6; color: white; } /* blue-500 */
+        .mode-ai-assist { background-color: #10b981; color: white; } /* emerald-500 */
+        .mode-co-creation { background-color: #f59e0b; color: white; } /* amber-500 */
+        .mode-not-started { background-color: #6b7280; color: white; } /* gray-500 */
+
+        #storyArchiveList button {
+            display: block;
+            width: 100%;
+            text-align: left;
+            padding: 0.5rem;
+            margin-bottom: 0.25rem;
+            background-color: #4b5563; /* gray-600 */
+            border-radius: 0.25rem;
+            transition: background-color 0.2s;
+        }
+        #storyArchiveList button:hover {
+            background-color: #525f73; /* gray-600 darker */
+        }
+         #storyArchiveList button.active-archive { 
+            background-color: #0ea5e9; /* sky-500 */
+            font-weight: bold;
+        }
+        /* Modal Styles */
+        .modal {
+            display: none; /* Hidden by default */
+            position: fixed; /* Stay in place */
+            z-index: 100; /* Sit on top */
+            left: 0;
+            top: 0;
+            width: 100%; /* Full width */
+            height: 100%; /* Full height */
+            overflow: auto; /* Enable scroll if needed */
+            background-color: rgba(0,0,0,0.6); /* Black w/ opacity */
+            padding-top: 60px;
+        }
+        .modal-content {
+            background-color: #1f2937; /* slate-800 */
+            margin: 5% auto; /* 5% from the top and centered */
+            padding: 20px;
+            border: 1px solid #4b5563; /* slate-600 */
+            width: 80%; /* Could be more or less, depending on screen size */
+            max-width: 600px;
+            border-radius: 0.5rem; /* rounded-lg */
+            color: #e5e7eb; /* gray-200 */
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+        .modal-header {
+            padding-bottom: 10px;
+            border-bottom: 1px solid #4b5563; /* slate-600 */
+            font-size: 1.25rem; /* text-xl */
+            font-weight: 600; /* font-semibold */
+            color: #60a5fa; /* sky-400 */
+        }
+        .modal-body {
+            padding-top: 15px;
+            padding-bottom: 15px;
+            white-space: pre-wrap; /* Preserve line breaks in summary */
+        }
+        .modal-footer {
+            padding-top: 10px;
+            border-top: 1px solid #4b5563; /* slate-600 */
+            text-align: right;
+        }
+        .close-button {
+            color: #9ca3af; /* gray-400 */
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            transition: color 0.2s;
+        }
+        .close-button:hover,
+        .close-button:focus {
+            color: #e5e7eb; /* gray-200 */
+            text-decoration: none;
+            cursor: pointer;
+        }
+        /* Resume Banner Style */
+        #resumeSessionBanner {
+            transition: transform 0.3s ease-out;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-slate-900 to-slate-800 text-gray-100 flex flex-col items-center min-h-screen p-4 selection:bg-sky-500 selection:text-white">
+
+    <div id="resumeSessionBanner" class="hidden fixed top-0 left-0 right-0 bg-sky-600 p-3 text-white text-center shadow-lg z-[101]">
+        偵測到您上次未完成的創作，要繼續嗎？
+        <button id="resumeButton" class="bg-green-500 hover:bg-green-600 px-3 py-1 rounded-md ml-4 text-sm font-medium">繼續上次</button>
+        <button id="startNewButtonFromBanner" class="bg-red-500 hover:bg-red-600 px-3 py-1 rounded-md ml-2 text-sm font-medium">開始新的</button>
+    </div>
+
+    <div class="w-full max-w-6xl bg-slate-800 shadow-2xl rounded-xl p-6 md:p-8 mt-16"> 
+        <header class="mb-6 text-center">
+            <h1 class="text-3xl md:text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-sky-400 to-cyan-300">協作故事坊</h1>
+            <p class="text-sm text-slate-400 mt-2">與 AI 攜手，編織無限精彩的故事篇章！</p>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            <div class="lg:col-span-1 bg-slate-700 p-4 rounded-lg shadow-md flex flex-col space-y-6">
+                <div>
+                    <h2 class="text-xl font-semibold mb-3 text-sky-400">故事設定</h2>
+                    <label for="storyTheme" class="block text-sm font-medium text-slate-300 mb-1">選擇主題：</label>
+                    <select id="storyTheme" class="w-full p-2 border border-slate-600 rounded-md bg-slate-600 text-slate-100 focus:ring-2 focus:ring-sky-500">
+                        <option value="奇幻冒險">奇幻冒險</option>
+                        <option value="科幻探索">科幻探索</option>
+                        <option value="懸疑推理">懸疑推理</option>
+                        <option value="校園生活">校園生活</option>
+                        <option value="都市傳說">都市傳說</option>
+                        <option value="custom">自訂主題...</option>
+                    </select>
+                    <input type="text" id="customTheme" class="w-full p-2 mt-2 border border-slate-600 rounded-md bg-slate-600 text-slate-100 focus:ring-2 focus:ring-sky-500 hidden" placeholder="請輸入自訂主題">
+                </div>
+
+                <div>
+                    <h2 class="text-xl font-semibold mb-3 text-sky-400">您的篇章</h2>
+                    <label for="userStoryInput" class="block text-sm font-medium text-slate-300 mb-1">輸入您的故事內容：</label>
+                    <textarea id="userStoryInput" rows="5" class="w-full p-2 border border-slate-600 rounded-md bg-slate-600 text-slate-100 focus:ring-2 focus:ring-sky-500 placeholder-slate-400" placeholder="寫下您的故事開頭或下一段情節..."></textarea>
+                    <button id="addToStoryButton" class="w-full mt-2 bg-sky-500 hover:bg-sky-600 text-white font-semibold py-2 px-4 rounded-md shadow-sm transition-colors duration-150">
+                        添加到故事
+                    </button>
+                </div>
+                
+                <div>
+                    <h2 class="text-xl font-semibold mb-3 text-sky-400">AI 創意助手</h2>
+                    <button id="getAISuggestionButton" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-semibold py-2 px-4 rounded-md shadow-sm transition-colors duration-150">
+                        獲取 AI 續寫建議
+                    </button>
+                    <div id="aiSuggestionArea" class="mt-3 p-3 bg-slate-600 rounded-md min-h-[80px] text-sm text-slate-300 hidden">
+                        <p id="aiSuggestionText" class="whitespace-pre-wrap"></p>
+                        <div id="aiSuggestionControls" class="mt-3 flex gap-2 hidden">
+                            <button id="acceptAISuggestion" class="flex-1 bg-green-500 hover:bg-green-600 text-white font-medium py-1.5 px-3 rounded-md text-sm">接受續寫</button>
+                            <button id="rejectAISuggestion" class="flex-1 bg-red-500 hover:bg-red-600 text-white font-medium py-1.5 px-3 rounded-md text-sm">拒絕續寫</button>
+                        </div>
+                    </div>
+                    <button id="getPlotTwistButton" class="w-full mt-3 bg-purple-500 hover:bg-purple-600 text-white font-semibold py-2 px-4 rounded-md shadow-sm transition-colors duration-150">
+                        ✨ AI 劇情轉折建議
+                    </button>
+                    <div id="plotTwistArea" class="mt-3 p-3 bg-slate-600 rounded-md min-h-[80px] text-sm text-slate-300 hidden">
+                        <p id="plotTwistText" class="whitespace-pre-wrap"></p>
+                    </div>
+                </div>
+                 <div id="messageArea" class="mt-auto text-sm text-slate-400 min-h-[40px] flex items-center justify-center text-center p-2 bg-slate-600 rounded-md">
+                    選擇主題，開始您的創作之旅！
+                </div>
+            </div>
+
+            <div class="lg:col-span-2 bg-slate-700 p-4 rounded-lg shadow-md">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-2xl font-semibold text-sky-400">我們的故事</h2>
+                </div>
+                <div id="storyOutput" class="h-96 overflow-y-auto p-3 bg-slate-800 rounded-md text-slate-200 story-content">
+                </div>
+                <div class="mt-4 grid grid-cols-2 md:grid-cols-3 gap-2">
+                    <button id="getStorySummaryButton" class="bg-teal-500 hover:bg-teal-600 text-white font-semibold py-2 px-4 rounded-md shadow-sm transition-colors duration-150">
+                        ✨ AI 故事摘要
+                    </button>
+                    <button id="saveStoryButton" class="bg-indigo-500 hover:bg-indigo-600 text-white font-semibold py-2 px-4 rounded-md shadow-sm transition-colors duration-150">
+                        儲存目前故事
+                    </button>
+                    <button id="clearStoryButton" class="md:col-start-3 bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-md shadow-sm transition-colors duration-150">
+                        清空目前 (新創作)
+                    </button>
+                </div>
+            </div>
+
+            <div class="lg:col-span-1 bg-slate-700 p-4 rounded-lg shadow-md">
+                <h2 class="text-xl font-semibold mb-3 text-sky-400">故事檔案庫</h2>
+                <div id="storyArchiveList" class="h-96 overflow-y-auto bg-slate-800 p-2 rounded-md">
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-6 bg-slate-700 p-4 rounded-lg shadow-md">
+            <h2 class="text-xl font-semibold mb-2 text-center text-sky-400">協作貢獻比例 (依參與次數)</h2>
+            <div id="ratioDisplay" class="text-center text-lg font-medium text-slate-200">
+                人類貢獻: 0% | AI 貢獻: 0%
+            </div>
+            <div id="ratioBarContainer" class="w-full bg-slate-600 rounded-full h-4 mt-2 overflow-hidden flex">
+                <div id="ratioBarHuman" class="bg-sky-500 h-4 rounded-l-full transition-all duration-500 ease-out" style="width: 0%;"></div>
+                <div id="ratioBarAI" class="bg-emerald-500 h-4 rounded-r-full transition-all duration-500 ease-out" style="width: 0%;"></div>
+            </div>
+        </div>
+
+        <div id="collaborationAnalysisSection" class="mt-6 bg-slate-700 p-4 rounded-lg shadow-md">
+            <h2 class="text-xl font-semibold mb-3 text-center text-sky-400">協作分析</h2>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                <div class="analysis-section bg-slate-600 p-3 rounded-md">
+                    <h3 class="text-lg font-semibold text-sky-300 mb-2">參與度分析</h3>
+                    <p><span class="analysis-label">人類創意貢獻 (次數)：</span><span id="humanContributionCount" class="analysis-value">0</span> 次</p>
+                    <p><span class="analysis-label">AI 輔助程度 (次數)：</span><span id="aiContributionCount" class="analysis-value">0</span> 次</p>
+                    <p><span class="analysis-label">人類貢獻總字數：</span><span id="humanWordCountDisplay" class="analysis-value">0</span> 字</p>
+                    <p><span class="analysis-label">AI 貢獻總字數：</span><span id="aiWordCountDisplay" class="analysis-value">0</span> 字</p>
+                </div>
+                <div class="analysis-section bg-slate-600 p-3 rounded-md">
+                    <h3 class="text-lg font-semibold text-sky-300 mb-2">協作流暢度</h3>
+                    <p class="analysis-label mb-1">AI建議接受率：<span id="aiAcceptanceRateText" class="analysis-value">尚無AI建議</span></p>
+                    <div class="progress-bar-container">
+                        <div id="aiAcceptanceRateBar" class="progress-bar" style="width: 0%;">0%</div>
+                    </div>
+                </div>
+                <div class="analysis-section bg-slate-600 p-3 rounded-md">
+                    <h3 class="text-lg font-semibold text-sky-300 mb-2">協作模式</h3>
+                    <p><span id="collaborationMode" class="analysis-value text-lg mode-indicator mode-not-started">尚未開始</span></p>
+                </div>
+                <div class="analysis-section bg-slate-600 p-3 rounded-md">
+                    <h3 class="text-lg font-semibold text-sky-300 mb-2">故事關鍵詞</h3>
+                    <div id="storyKeywords" class="analysis-keywords-list analysis-value">尚無內容</div>
+                </div>
+            </div>
+        </div>
+
+         <footer class="text-center mt-8 text-xs text-slate-500">
+            <p>版本 1.0 | 妙妙老師製作 | 一個感知人機互動的文字協作遊戲 DEMO</p>
+        </footer>
+    </div>
+
+    <div id="storySummaryModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span class="close-button" id="closeSummaryModal">&times;</span>
+                <h2>✨ AI 故事摘要</h2>
+            </div>
+            <div class="modal-body" id="summaryModalBody">
+                <p>AI 正在為您摘要故事...</p>
+            </div>
+            <div class="modal-footer">
+                <button id="copySummaryButton" class="bg-sky-500 hover:bg-sky-600 text-white font-semibold py-2 px-3 rounded-md text-sm">複製摘要</button>
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        // DOM Elements
+        const storyThemeSelect = document.getElementById('storyTheme');
+        const customThemeInput = document.getElementById('customTheme');
+        const userStoryInput = document.getElementById('userStoryInput');
+        const addToStoryButton = document.getElementById('addToStoryButton');
+        const getAISuggestionButton = document.getElementById('getAISuggestionButton'); 
+        const aiSuggestionArea = document.getElementById('aiSuggestionArea');
+        const aiSuggestionText = document.getElementById('aiSuggestionText');
+        const aiSuggestionControls = document.getElementById('aiSuggestionControls');
+        const acceptAISuggestionButton = document.getElementById('acceptAISuggestion');
+        const rejectAISuggestionButton = document.getElementById('rejectAISuggestion');
+        
+        const getPlotTwistButton = document.getElementById('getPlotTwistButton');
+        const plotTwistArea = document.getElementById('plotTwistArea');
+        const plotTwistText = document.getElementById('plotTwistText');
+
+        const getStorySummaryButton = document.getElementById('getStorySummaryButton');
+        const storySummaryModal = document.getElementById('storySummaryModal');
+        const summaryModalBody = document.getElementById('summaryModalBody');
+        const closeSummaryModalButton = document.getElementById('closeSummaryModal');
+        const copySummaryButton = document.getElementById('copySummaryButton');
+
+        const storyOutput = document.getElementById('storyOutput');
+        const clearStoryButton = document.getElementById('clearStoryButton');
+        const saveStoryButton = document.getElementById('saveStoryButton');
+        const storyArchiveList = document.getElementById('storyArchiveList');
+
+        const messageArea = document.getElementById('messageArea');
+        
+        const ratioDisplay = document.getElementById('ratioDisplay');
+        const ratioBarHuman = document.getElementById('ratioBarHuman');
+        const ratioBarAI = document.getElementById('ratioBarAI');
+
+        const humanContributionCountDisplay = document.getElementById('humanContributionCount');
+        const aiContributionCountDisplay = document.getElementById('aiContributionCount');
+        const humanWordCountDisplay = document.getElementById('humanWordCountDisplay');
+        const aiWordCountDisplay = document.getElementById('aiWordCountDisplay');    
+        const aiAcceptanceRateTextDisplay = document.getElementById('aiAcceptanceRateText');
+        const aiAcceptanceRateBar = document.getElementById('aiAcceptanceRateBar');
+        const collaborationModeDisplay = document.getElementById('collaborationMode');
+        const storyKeywordsDisplay = document.getElementById('storyKeywords');
+
+        const resumeSessionBanner = document.getElementById('resumeSessionBanner');
+        const resumeButton = document.getElementById('resumeButton');
+        const startNewButtonFromBanner = document.getElementById('startNewButtonFromBanner');
+
+        // State
+        let currentStorySegments = []; 
+        let humanContributions = 0;
+        let aiContributions = 0; 
+        let humanWordCount = 0; 
+        let aiWordCount = 0;    
+        let aiSuggestionsOffered = 0; 
+        let aiSuggestionsAccepted = 0; 
+        let currentTheme = "奇幻冒險";
+        let archivedStories = [];
+        let isResumingSession = false; 
+
+        const ARCHIVE_STORAGE_KEY = 'collaborativeStoryArchive';
+        const AUTO_SAVE_KEY = 'collaborativeStoryAutoSave'; 
+
+        // --- Initialization ---
+        function initializeApp() {
+            const autoSavedSessionData = localStorage.getItem(AUTO_SAVE_KEY);
+            if (autoSavedSessionData) {
+                resumeSessionBanner.classList.remove('hidden');
+                document.querySelector('.w-full.max-w-6xl').style.marginTop = '5rem'; 
+
+                resumeButton.onclick = () => {
+                    isResumingSession = true;
+                    loadAutoSavedSession(JSON.parse(autoSavedSessionData));
+                    resumeSessionBanner.classList.add('hidden');
+                    document.querySelector('.w-full.max-w-6xl').style.marginTop = ''; 
+                    showMessage("已成功載入您上次的創作！", "success");
+                    isResumingSession = false; 
+                };
+                startNewButtonFromBanner.onclick = () => {
+                    clearAutoSavedSession();
+                    resetApplicationStateToNew(); 
+                    resumeSessionBanner.classList.add('hidden');
+                    document.querySelector('.w-full.max-w-6xl').style.marginTop = ''; 
+                    showMessage("已開始新的創作。", "info");
+                };
+            } else {
+                document.querySelector('.w-full.max-w-6xl').style.marginTop = '1rem'; 
+            }
+
+            storyThemeSelect.addEventListener('change', handleThemeChange);
+            customThemeInput.addEventListener('input', () => {
+                if (storyThemeSelect.value === 'custom') {
+                    currentTheme = customThemeInput.value.trim() || "自訂主題";
+                }
+                autoSaveCurrentSession(); 
+            });
+            addToStoryButton.addEventListener('click', handleAddUserSegment);
+            getAISuggestionButton.addEventListener('click', fetchAIContinuationSuggestion); 
+            acceptAISuggestionButton.addEventListener('click', handleAcceptAISuggestion);
+            rejectAISuggestionButton.addEventListener('click', handleRejectAISuggestion);
+            
+            getPlotTwistButton.addEventListener('click', fetchPlotTwistSuggestion);
+            getStorySummaryButton.addEventListener('click', fetchStorySummary);
+            closeSummaryModalButton.addEventListener('click', () => storySummaryModal.style.display = "none");
+            copySummaryButton.addEventListener('click', copySummaryToClipboard);
+            
+            clearStoryButton.addEventListener('click', handleClearStoryOrStartNew);
+            saveStoryButton.addEventListener('click', handleSaveCurrentStory);
+            
+            loadArchivedStories();
+            renderArchiveList();
+            
+            if (!autoSavedSessionData || (autoSavedSessionData && !resumeSessionBanner.classList.contains('hidden'))) {
+                 updateAllDisplays(); 
+            }
+            if (!resumeSessionBanner.classList.contains('hidden')) {
+            } else {
+                 messageArea.textContent = `選擇主題 "${currentTheme}"，開始您的創作之旅！`;
+            }
+
+            window.onclick = function(event) {
+                if (event.target == storySummaryModal) {
+                    storySummaryModal.style.display = "none";
+                }
+            }
+        }
+
+        // --- Auto-Save and Load ---
+        function autoSaveCurrentSession() {
+            if (isResumingSession) return; 
+
+            const sessionData = {
+                theme: currentTheme,
+                customThemeValue: storyThemeSelect.value === 'custom' ? customThemeInput.value : null,
+                segments: currentStorySegments, 
+                humanContributions,
+                aiContributions,
+                humanWordCount, 
+                aiWordCount,    
+                aiSuggestionsOffered,
+                aiSuggestionsAccepted,
+            };
+            localStorage.setItem(AUTO_SAVE_KEY, JSON.stringify(sessionData));
+        }
+
+        function loadAutoSavedSession(sessionData) {
+            currentTheme = sessionData.theme;
+            currentStorySegments = sessionData.segments || [];
+            humanContributions = sessionData.humanContributions || 0;
+            aiContributions = sessionData.aiContributions || 0;
+            humanWordCount = sessionData.humanWordCount || 0; 
+            aiWordCount = sessionData.aiWordCount || 0;       
+            aiSuggestionsOffered = sessionData.aiSuggestionsOffered || 0;
+            aiSuggestionsAccepted = sessionData.aiSuggestionsAccepted || 0;
+
+            storyThemeSelect.value = Object.values(storyThemeSelect.options).find(opt => opt.value === currentTheme) ? currentTheme : 'custom';
+            if (storyThemeSelect.value === 'custom') {
+                customThemeInput.value = sessionData.customThemeValue || "";
+                customThemeInput.classList.remove('hidden');
+            } else {
+                customThemeInput.classList.add('hidden');
+            }
+            
+            storyOutput.innerHTML = ""; 
+            currentStorySegments.forEach(segment => appendSegmentToStoryDOM(segment.text, segment.author));
+
+            userStoryInput.value = ""; 
+            clearAISuggestion();
+            clearPlotTwistSuggestion();
+            
+            toggleEditingControls(true); 
+            updateAllDisplays(); 
+        }
+
+        function clearAutoSavedSession() {
+            localStorage.removeItem(AUTO_SAVE_KEY);
+        }
+        
+        function resetApplicationStateToNew() {
+            currentStorySegments = [];
+            storyOutput.innerHTML = ""; 
+            humanContributions = 0;
+            aiContributions = 0;
+            humanWordCount = 0;
+            aiWordCount = 0;
+            aiSuggestionsOffered = 0;
+            aiSuggestionsAccepted = 0;
+            currentTheme = storyThemeSelect.options[0].value; 
+            storyThemeSelect.value = currentTheme;
+            customThemeInput.classList.add('hidden');
+            customThemeInput.value = "";
+            
+            toggleEditingControls(true); 
+
+            updateAllDisplays();
+            userStoryInput.value = "";
+            clearAISuggestion();
+            clearPlotTwistSuggestion();
+            renderArchiveList(); 
+        }
+
+
+        // --- Event Handlers ---
+        function handleThemeChange() {
+            const selectedValue = storyThemeSelect.value;
+            if (selectedValue === 'custom') {
+                customThemeInput.classList.remove('hidden');
+                customThemeInput.focus();
+                currentTheme = customThemeInput.value.trim() || "自訂主題";
+            } else {
+                customThemeInput.classList.add('hidden');
+                currentTheme = selectedValue;
+            }
+            messageArea.textContent = `故事主題已更改為 "${currentTheme}"。`;
+            autoSaveCurrentSession();
+        }
+
+        function handleAddUserSegment() {
+            const userText = userStoryInput.value.trim();
+            if (!userText) {
+                showMessage("請先輸入您的故事內容！", "warning");
+                return;
+            }
+            appendSegmentToStoryDOM(userText, 'user');
+            currentStorySegments.push({ text: userText, author: 'user' });
+            humanContributions++;
+            humanWordCount += userText.length; 
+            updateAllDisplays();
+            userStoryInput.value = "";
+            showMessage("您的創作已添加到故事中！", "success");
+            autoSaveCurrentSession();
+        }
+
+        async function fetchAIContinuationSuggestion() { 
+            const fullStoryTextForPrompt = getPlainTextStoryForAI();
+             if (!fullStoryTextForPrompt && !userStoryInput.value.trim()) {
+                showMessage("請先添加一些故事內容，或至少在輸入框中寫下開頭，AI才能提供建議。", "warning");
+                return;
+            }
+            if (userStoryInput.value.trim()) {
+                 showMessage("AI建議前，請先將您目前輸入的內容「添加到故事」。", "info");
+                 return;
+            }
+            if (!fullStoryTextForPrompt) {
+                showMessage("故事還是空的，AI 無法提供建議。請先「添加到故事」。", "warning");
+                return;
+            }
+
+            showMessage("AI 正在構思續寫中，請稍候...", "loading");
+            getAISuggestionButton.disabled = true;
+            aiSuggestionArea.classList.remove('hidden');
+            aiSuggestionText.textContent = "AI 思考中...";
+            aiSuggestionControls.classList.add('hidden');
+
+            const prompt = `這是一個關於 "${currentTheme}" 的故事。請根據以下已有的故事內容，自然地接續寫一段大約 50 到 100 字的續寫。請確保續寫內容與先前情節連貫，並保持故事風格一致。請直接輸出續寫的文字，不要包含任何額外的前綴或標題。\n\n故事目前內容：\n${fullStoryTextForPrompt}`;
+            
+            try {
+                const suggestion = await callGeminiAPI(prompt);
+                aiSuggestionText.textContent = suggestion;
+                aiSuggestionControls.classList.remove('hidden');
+                aiSuggestionsOffered++; 
+                updateCollaborationAnalysis(); 
+                showMessage("AI 提供了續寫建議，請選擇是否接受。", "info");
+            } catch (error) {
+                aiSuggestionText.textContent = `獲取續寫建議失敗：${error.message}`;
+                aiSuggestionControls.classList.add('hidden');
+                showMessage(`AI 續寫建議獲取失敗：${error.message}`, "error");
+            } finally {
+                getAISuggestionButton.disabled = false;
+            }
+        }
+
+        function handleAcceptAISuggestion() {
+            const suggestion = aiSuggestionText.textContent;
+            if (suggestion && suggestion !== "AI 思考中...") {
+                appendSegmentToStoryDOM(suggestion, 'ai');
+                currentStorySegments.push({ text: suggestion, author: 'ai' });
+                aiContributions++;
+                aiWordCount += suggestion.length; 
+                aiSuggestionsAccepted++; 
+                updateAllDisplays();
+                clearAISuggestion();
+                showMessage("已接受 AI 的續寫建議並添加到故事中！", "success");
+                autoSaveCurrentSession();
+            }
+        }
+
+        function handleRejectAISuggestion() {
+            clearAISuggestion();
+            updateCollaborationAnalysis(); 
+            showMessage("已拒絕 AI 的續寫建議。", "info");
+            autoSaveCurrentSession(); 
+        }
+
+        async function fetchPlotTwistSuggestion() {
+            const fullStoryTextForPrompt = getPlainTextStoryForAI();
+            if (!fullStoryTextForPrompt) {
+                showMessage("故事內容太少，AI 無法提供有意義的劇情轉折建議。", "warning");
+                return;
+            }
+
+            showMessage("AI 正在構思劇情轉折，請稍候...", "loading");
+            getPlotTwistButton.disabled = true;
+            plotTwistArea.classList.remove('hidden');
+            plotTwistText.textContent = "AI 思考中...";
+
+            const prompt = `這是一個關於 "${currentTheme}" 的故事。目前的故事情節如下：\n\n${fullStoryTextForPrompt}\n\n請為這個故事提出一個出人意料、且能激發創作靈感的劇情轉折點子（約 50-100 字）。請直接輸出點子，不要包含額外的前綴。`;
+
+            try {
+                const twist = await callGeminiAPI(prompt);
+                plotTwistText.textContent = twist;
+                showMessage("AI 提供了劇情轉折建議！您可以參考它來繼續創作。", "success");
+            } catch (error) {
+                plotTwistText.textContent = `獲取劇情轉折失敗：${error.message}`;
+                showMessage(`AI 劇情轉折建議獲取失敗：${error.message}`, "error");
+            } finally {
+                getPlotTwistButton.disabled = false;
+            }
+        }
+
+        async function fetchStorySummary() {
+            let storyTextToSummarize = getPlainTextStoryForAI();
+            let summaryContext = "目前故事";
+            
+            if (!storyTextToSummarize.trim()) {
+                showMessage("故事是空的，無法生成摘要。", "warning");
+                return;
+            }
+            
+            summaryModalBody.textContent = `AI 正在為您摘要${summaryContext}...`;
+            storySummaryModal.style.display = "block";
+            getStorySummaryButton.disabled = true;
+
+            const prompt = `請為以下故事內容提供一個簡潔的摘要（約 100-150 字）：\n\n${storyTextToSummarize}`;
+            
+            try {
+                const summary = await callGeminiAPI(prompt);
+                summaryModalBody.textContent = summary;
+            } catch (error) {
+                summaryModalBody.textContent = `生成摘要失敗：${error.message}`;
+            } finally {
+                getStorySummaryButton.disabled = false;
+            }
+        }
+        
+        async function callGeminiAPI(promptText) {
+            let chatHistory = [{ role: "user", parts: [{ text: promptText }] }];
+            const payload = { contents: chatHistory };
+            const apiKey = ""; 
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+            
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                console.error('Gemini API Error:', errorData);
+                throw new Error(`AI 服務錯誤 (${response.status}): ${errorData.error?.message || '未知錯誤'}`);
+            }
+
+            const result = await response.json();
+            if (result.candidates && result.candidates.length > 0 &&
+                result.candidates[0].content && result.candidates[0].content.parts &&
+                result.candidates[0].content.parts.length > 0 && result.candidates[0].content.parts[0].text) {
+                return result.candidates[0].content.parts[0].text.trim();
+            } else {
+                console.error('Unexpected Gemini API response structure:', result);
+                throw new Error('AI 未能成功生成內容，或返回的資料格式不正確。');
+            }
+        }
+
+        function copySummaryToClipboard() {
+            const summaryText = summaryModalBody.textContent;
+            if (!summaryText || summaryText === "AI 正在為您摘要故事..." || summaryText.startsWith("生成摘要失敗")) {
+                showMessage("沒有有效的摘要內容可以複製。", "warning");
+                return;
+            }
+            const textarea = document.createElement('textarea');
+            textarea.value = summaryText;
+            document.body.appendChild(textarea);
+            textarea.select();
+            try {
+                document.execCommand('copy');
+                showMessage("摘要已複製到剪貼簿！", "success");
+            } catch (err) {
+                showMessage("複製摘要失敗。", "error");
+                console.error('Failed to copy summary: ', err);
+            }
+            document.body.removeChild(textarea);
+            storySummaryModal.style.display = "none"; 
+        }
+        
+        function handleClearStoryOrStartNew() {
+            clearAutoSavedSession(); 
+            resetApplicationStateToNew(); 
+            showMessage("已清空目前內容，您可以開始新的創作了！", "info");
+        }
+
+        function handleSaveCurrentStory() {
+            if (currentStorySegments.length === 0) {
+                showMessage("故事是空的，沒有什麼可以儲存的！", "warning");
+                return;
+            }
+
+            const now = new Date();
+            const savedStory = {
+                id: now.getTime(),
+                timestamp: now.toISOString(),
+                theme: currentTheme,
+                segments: JSON.parse(JSON.stringify(currentStorySegments)),
+                analysis: { 
+                    humanContributions,
+                    aiContributions,
+                    humanWordCount, 
+                    aiWordCount,    
+                    aiSuggestionsOffered,
+                    aiSuggestionsAccepted,
+                    keywords: extractKeywords(getFullStoryTextForAnalysis(), 5)
+                }
+            };
+            archivedStories.unshift(savedStory); 
+            localStorage.setItem(ARCHIVE_STORAGE_KEY, JSON.stringify(archivedStories));
+            renderArchiveList();
+            showMessage("故事已成功儲存到檔案庫！", "success");
+        }
+        
+        function loadArchivedStories() {
+            const stored = localStorage.getItem(ARCHIVE_STORAGE_KEY);
+            if (stored) {
+                archivedStories = JSON.parse(stored);
+            }
+        }
+
+        function renderArchiveList() {
+            storyArchiveList.innerHTML = ""; 
+            if (archivedStories.length === 0) {
+                storyArchiveList.innerHTML = '<p class="text-slate-400 text-sm p-2">檔案庫是空的。</p>';
+                return;
+            }
+            archivedStories.forEach(story => {
+                const button = document.createElement('button');
+                const date = new Date(story.timestamp).toLocaleString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+                button.textContent = `[${date}] ${story.theme}`;
+                button.onclick = () => loadStoryFromArchive(story.id);
+                storyArchiveList.appendChild(button);
+            });
+        }
+
+        function loadStoryFromArchive(storyId) {
+            const storyToLoad = archivedStories.find(s => s.id === storyId);
+            if (!storyToLoad) return;
+
+            currentTheme = storyToLoad.theme;
+            currentStorySegments = JSON.parse(JSON.stringify(storyToLoad.segments)); 
+            humanContributions = storyToLoad.analysis.humanContributions || 0;
+            aiContributions = storyToLoad.analysis.aiContributions || 0;
+            
+            if (typeof storyToLoad.analysis.humanWordCount !== 'undefined') {
+                humanWordCount = storyToLoad.analysis.humanWordCount;
+            } else {
+                humanWordCount = 0;
+                currentStorySegments.filter(s => s.author === 'user').forEach(s => humanWordCount += s.text.length);
+            }
+            if (typeof storyToLoad.analysis.aiWordCount !== 'undefined') {
+                aiWordCount = storyToLoad.analysis.aiWordCount;
+            } else {
+                aiWordCount = 0;
+                currentStorySegments.filter(s => s.author === 'ai').forEach(s => aiWordCount += s.text.length);
+            }
+
+            aiSuggestionsOffered = storyToLoad.analysis.aiSuggestionsOffered || 0;
+            aiSuggestionsAccepted = storyToLoad.analysis.aiSuggestionsAccepted || 0;
+            
+            storyThemeSelect.value = Object.values(storyThemeSelect.options).find(opt => opt.value === currentTheme) ? currentTheme : 'custom';
+            if (storyThemeSelect.value === 'custom') {
+                customThemeInput.value = currentTheme;
+                customThemeInput.classList.remove('hidden');
+            } else {
+                customThemeInput.classList.add('hidden');
+            }
+            
+            storyOutput.innerHTML = ""; 
+            currentStorySegments.forEach(segment => appendSegmentToStoryDOM(segment.text, segment.author));
+
+            userStoryInput.value = ""; 
+            clearAISuggestion();
+            clearPlotTwistSuggestion();
+            toggleEditingControls(true); 
+            
+            updateAllDisplays(); 
+            renderArchiveList(); 
+            showMessage(`已從檔案庫載入故事： "${currentTheme}"。您可以繼續編輯並儲存為新版本。`, "info");
+            autoSaveCurrentSession(); 
+        }
+        
+        function toggleEditingControls(enabled) {
+            userStoryInput.disabled = !enabled;
+            addToStoryButton.disabled = !enabled;
+            getAISuggestionButton.disabled = !enabled;
+            getPlotTwistButton.disabled = !enabled;
+            acceptAISuggestionButton.disabled = !enabled; 
+            rejectAISuggestionButton.disabled = !enabled;
+            storyThemeSelect.disabled = !enabled;
+            customThemeInput.disabled = !enabled;
+        }
+
+        // --- Helper Functions ---
+        function appendSegmentToStoryDOM(text, author) {
+            const paragraph = document.createElement('p');
+            paragraph.textContent = text;
+            paragraph.classList.add(author === 'user' ? 'user-text' : 'ai-text');
+            storyOutput.appendChild(paragraph);
+            storyOutput.scrollTop = storyOutput.scrollHeight; 
+        }
+        
+        function getPlainTextStoryForAI() {
+            return currentStorySegments.map(segment => segment.text).join("\n\n");
+        }
+        
+        function getFullStoryTextForAnalysis() {
+            return currentStorySegments.map(segment => segment.text).join(" ");
+        }
+
+        function clearAISuggestion() {
+            aiSuggestionArea.classList.add('hidden');
+            aiSuggestionText.textContent = "";
+            aiSuggestionControls.classList.add('hidden');
+        }
+        function clearPlotTwistSuggestion() {
+            plotTwistArea.classList.add('hidden');
+            plotTwistText.textContent = "";
+        }
+        
+        function updateAllDisplays() {
+            updateRatioDisplay();
+            updateCollaborationAnalysis();
+        }
+
+        function updateRatioDisplay() {
+            const totalContributions = humanContributions + aiContributions;
+            let humanPercent = 0;
+            let aiPercent = 0;
+
+            if (totalContributions > 0) {
+                humanPercent = (humanContributions / totalContributions) * 100;
+                aiPercent = (aiContributions / totalContributions) * 100;
+            }
+
+            ratioDisplay.textContent = `人類貢獻: ${humanPercent.toFixed(0)}% | AI 貢獻: ${aiPercent.toFixed(0)}%`;
+            ratioBarHuman.style.width = `${humanPercent}%`;
+            ratioBarAI.style.width = `${aiPercent}%`;
+        }
+
+        function updateCollaborationAnalysis() {
+            humanContributionCountDisplay.textContent = humanContributions; // Removed unit from JS
+            aiContributionCountDisplay.textContent = aiContributions;     // Removed unit from JS
+            humanWordCountDisplay.textContent = humanWordCount;         // Removed unit from JS
+            aiWordCountDisplay.textContent = aiWordCount;             // Removed unit from JS
+
+            let acceptanceRate = 0;
+            if (aiSuggestionsOffered > 0) {
+                acceptanceRate = (aiSuggestionsAccepted / aiSuggestionsOffered) * 100;
+                aiAcceptanceRateTextDisplay.textContent = `${acceptanceRate.toFixed(0)}% (${aiSuggestionsAccepted}/${aiSuggestionsOffered} 次)`;
+                aiAcceptanceRateBar.style.width = `${acceptanceRate.toFixed(0)}%`;
+                aiAcceptanceRateBar.textContent = `${acceptanceRate.toFixed(0)}%`;
+            } else {
+                aiAcceptanceRateTextDisplay.textContent = "尚無AI建議";
+                aiAcceptanceRateBar.style.width = `0%`;
+                aiAcceptanceRateBar.textContent = `0%`;
+            }
+
+            const totalContributions = humanContributions + aiContributions;
+            let mode = "尚未開始";
+            let modeClass = "mode-not-started";
+            if (totalContributions > 0) {
+                const humanPercent = (humanContributions / totalContributions) * 100;
+                if (humanPercent >= 65) {
+                    mode = "人類主導";
+                    modeClass = "mode-human-lead";
+                } else if (humanPercent <= 35) { 
+                    mode = "AI 強力輔助";
+                    modeClass = "mode-ai-assist";
+                } else {
+                    mode = "共同創作";
+                    modeClass = "mode-co-creation";
+                }
+            }
+            collaborationModeDisplay.textContent = mode;
+            collaborationModeDisplay.className = `analysis-value text-lg mode-indicator ${modeClass}`;
+
+
+            const storyText = getFullStoryTextForAnalysis();
+            if (storyText.trim()) {
+                const keywords = extractKeywords(storyText, 5); 
+                if (keywords.length > 0) {
+                    storyKeywordsDisplay.innerHTML = keywords.map(kw => `<div class="p-1 bg-slate-500/50 rounded text-xs inline-block mr-1 mb-1">${kw.word}: ${kw.count}</div>`).join('');
+                } else {
+                    storyKeywordsDisplay.textContent = "故事內容不足以分析關鍵詞";
+                }
+            } else {
+                storyKeywordsDisplay.textContent = "尚無內容";
+            }
+        }
+        
+        function extractKeywords(text, topN = 5) {
+            if (!text || text.trim() === "") return [];
+            const cleanedText = text
+                .replace(/【您的創作】/g, '')
+                .replace(/【AI的續寫】/g, '')
+                .replace(/[。,、；？！「」『』（）《》…。!?]/g, ' ') 
+                .toLowerCase(); 
+
+            const words = cleanedText.split(/\s+/).filter(word => word.length > 1); 
+
+            const wordCounts = {};
+            words.forEach(word => {
+                if (word.match(/^[\u4e00-\u9fa5a-zA-Z0-9]+$/)) { 
+                    wordCounts[word] = (wordCounts[word] || 0) + 1;
+                }
+            });
+            const commonStopWords = new Set(['的', '了', '在', '是', '我', '你', '他', '她', '它', '也', '都', '就', '不', '嗎', '吧', '呢', 'a', 'the', 'is', 'and', 'to', 'this', 'that', 'with', 'for']);
+            
+            const sortedKeywords = Object.entries(wordCounts)
+                .filter(([word]) => !commonStopWords.has(word) && word.length > 1 && isNaN(word)) 
+                .sort(([, countA], [, countB]) => countB - countA);
+            
+            return sortedKeywords.slice(0, topN).map(([word, count]) => ({ word, count }));
+        }
+
+        function showMessage(text, type = "info") {
+            messageArea.textContent = text;
+            messageArea.classList.remove('text-slate-400', 'text-green-400', 'text-yellow-400', 'text-red-400'); 
+            switch (type) {
+                case "success": messageArea.classList.add('text-green-400'); break;
+                case "warning": messageArea.classList.add('text-yellow-400'); break;
+                case "error": messageArea.classList.add('text-red-400'); break;
+                default: messageArea.classList.add('text-slate-400'); break;
+            }
+        }
+
+        initializeApp();
+    </script>
+</body>
+</html>
